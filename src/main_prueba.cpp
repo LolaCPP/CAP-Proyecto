@@ -7,29 +7,24 @@
 
 int main(int argc, char** argv)
 {
-    // ======================================
     // 1. Leer número de objetos como argumento
-    // ======================================
-    int N = 20000; // default
+    int N = 2000; // default
+    int NUM_THREADS = 1; // default
     if (argc > 1) {
         N = std::atoi(argv[1]);
+        NUM_THREADS = std::atoi(argv[2]);
     }
 
     std::cout << "Creando " << N << " objetos...\n";
 
-    // ======================================
     // 2. Crear solver sin SFML
-    // ======================================
     const IVec2 world_size{300, 300};
 
-    // IMPORTANTE: poner solo 1 hilo si quieres SINGLE THREAD
-    tp::ThreadPool thread_pool(1);
+    tp::ThreadPool thread_pool(NUM_THREADS);
 
     PhysicSolver solver(world_size, thread_pool);
 
-    // ======================================
     // 3. Crear partículas iniciales
-    // ======================================
     for (int i = 0; i < N; i++) {
         float x = 10.0f + (i % 100) * 2.0f;
         float y = 10.0f + (i / 100) * 2.0f;
@@ -37,10 +32,8 @@ int main(int argc, char** argv)
         solver.createObject({x, y});
     }
 
-    // ======================================
     // 4. Simular y medir FPS
-    // ======================================
-    const int frames = 200;
+    const int frames = 400;
     const float dt = 1.0f / 60.0f;
 
     auto start = std::chrono::high_resolution_clock::now();
