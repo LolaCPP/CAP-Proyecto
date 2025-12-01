@@ -15,8 +15,6 @@ int main(int argc, char** argv)
         NUM_THREADS = std::atoi(argv[2]);
     }
 
-    std::cout << "Creando " << N << " objetos...\n";
-
     // 2. Crear solver sin SFML
     const IVec2 world_size{300, 300};
 
@@ -48,10 +46,7 @@ int main(int argc, char** argv)
 
     double fps = frames / (total_ms / 1000.0);
 
-    std::cout << "Simulación completada.\n";
-    std::cout << "Frames: " << frames << "\n";
-    std::cout << "Tiempo total: " << total_ms << " ms\n";
-    std::cout << "FPS promedio: " << fps << "\n";
+    std::cout << fps << std::endl;
 
     return 0;
 }
