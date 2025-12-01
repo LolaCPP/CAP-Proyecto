@@ -14,7 +14,7 @@ public:
     void createObject(float x, float y);
     void update(float dt);
 
-private:
+public:
     int max_objects;
     int num_objects;
 
