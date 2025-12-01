@@ -9,39 +9,56 @@
 struct PhysicSolver
 {
     CIVector<PhysicObject> objects;
-    CollisionGrid grid;
-    Vec2 world_size;
-    Vec2 gravity = {0.0f, 20.0f};
-    GPUSolver *gpu_solver = nullptr;
-    bool use_gpu = false;
+    CollisionGrid          grid;
+    Vec2                   world_size;
+    Vec2                   gravity = {0.0f, 20.0f};
+
+    GPUSolver*             gpu_solver = nullptr;
+    bool                   use_gpu    = false;
 
     // Simulation solving pass count
-    uint32_t sub_steps;
-    tp::ThreadPool &thread_pool;
+    uint32_t               sub_steps;
+    tp::ThreadPool&        thread_pool;
 
-    PhysicSolver(IVec2 size, tp::ThreadPool &tp, bool useGpu = false)
-        : grid{size.x, size.y}, world_size{float(size.x), float(size.y)}, sub_steps{8}, thread_pool{tp}, use_gpu{useGpu}
+    PhysicSolver(IVec2 size, tp::ThreadPool& tp, bool useGpu = false)
+        : grid{size.x, size.y}
+        , world_size{float(size.x), float(size.y)}
+        , sub_steps{8}
+        , thread_pool{tp}
+        , use_gpu{useGpu}
     {
         grid.clear();
+
         if (use_gpu)
         {
-            gpu_solver = new GPUSolver(200000); // o objects.capacity()
+            // Use same grid dimensions and world size for GPUSolver
+            gpu_solver = new GPUSolver(
+                200000,           // max objects (can adjust)
+                grid.width,
+                grid.height,
+                world_size.x,
+                world_size.y
+            );
         }
     }
+
     ~PhysicSolver()
     {
         delete gpu_solver;
     }
 
-    // Checks if two atoms are colliding and if so create a new contact
+    // Checks if two atoms are colliding and if so create a new contact (CPU version)
     void solveContact(uint32_t atom_1_idx, uint32_t atom_2_idx)
     {
         constexpr float response_coef = 1.0f;
         constexpr float eps = 0.0001f;
-        PhysicObject &obj_1 = objects.data[atom_1_idx];
-        PhysicObject &obj_2 = objects.data[atom_2_idx];
+
+        PhysicObject& obj_1 = objects.data[atom_1_idx];
+        PhysicObject& obj_2 = objects.data[atom_2_idx];
+
         const Vec2 o2_o1 = obj_1.position - obj_2.position;
         const float dist2 = o2_o1.x * o2_o1.x + o2_o1.y * o2_o1.y;
+
         if (dist2 < 1.0f && dist2 > eps)
         {
             const float dist = sqrt(dist2);
@@ -53,7 +70,7 @@ struct PhysicSolver
         }
     }
 
-    void checkAtomCellCollisions(uint32_t atom_idx, const CollisionCell &c)
+    void checkAtomCellCollisions(uint32_t atom_idx, const CollisionCell& c)
     {
         for (uint32_t i{0}; i < c.objects_count; ++i)
         {
@@ -61,7 +78,7 @@ struct PhysicSolver
         }
     }
 
-    void processCell(const CollisionCell &c, uint32_t index)
+    void processCell(const CollisionCell& c, uint32_t index)
     {
         for (uint32_t i{0}; i < c.objects_count; ++i)
         {
@@ -86,7 +103,7 @@ struct PhysicSolver
         }
     }
 
-    // Find colliding atoms
+    // CPU collision solver (unchanged)
     void solveCollisions()
     {
         // Multi-thread grid
@@ -100,82 +117,62 @@ struct PhysicSolver
         for (uint32_t i{0}; i < thread_count; ++i)
         {
             thread_pool.addTask([this, i, slice_size]
-                                {
+            {
                 uint32_t const start{2 * i * slice_size};
                 uint32_t const end  {start + slice_size};
-                solveCollisionThreaded(start, end); });
+                solveCollisionThreaded(start, end);
+            });
         }
+
         // Eventually process rest if the world is not divisible by the thread count
         if (last_cell < grid.data.size())
         {
             thread_pool.addTask([this, last_cell]
-                                { solveCollisionThreaded(last_cell, to<uint32_t>(grid.data.size())); });
+            {
+                solveCollisionThreaded(last_cell, to<uint32_t>(grid.data.size()));
+            });
         }
+
         thread_pool.waitForCompletion();
+
         // Second collision pass
         for (uint32_t i{0}; i < thread_count; ++i)
         {
             thread_pool.addTask([this, i, slice_size]
-                                {
+            {
                 uint32_t const start{(2 * i + 1) * slice_size};
                 uint32_t const end  {start + slice_size};
-                solveCollisionThreaded(start, end); });
+                solveCollisionThreaded(start, end);
+            });
         }
+
         thread_pool.waitForCompletion();
     }
 
-    // Add a new object to the solver
-    uint64_t addObject(const PhysicObject &object)
+    // Add a new object to the solver (CPU side only)
+    uint64_t addObject(const PhysicObject& object)
     {
         return objects.push_back(object);
     }
 
-    // Add a new object to the solver
+    // Add a new object to the solver (and also on GPU if enabled)
     uint64_t createObject(Vec2 pos)
     {
         auto id = objects.emplace_back(pos);
-        if (use_gpu)
+        if (use_gpu && gpu_solver)
+        {
             gpu_solver->createObject(pos.x, pos.y);
+        }
         return id;
     }
-    void updateObjects_gpu(float dt)
-    {
-        gpu_solver->update(dt);
 
-        // Transferir posiciones GPU → CPU
-        for (uint32_t i = 0; i < objects.size(); ++i)
-        {
-            objects.data[i].position.x = gpu_solver->h_objects[i].x;
-            objects.data[i].position.y = gpu_solver->h_objects[i].y;
-
-            // actualizar last_position también
-            objects.data[i].last_position.x = gpu_solver->h_objects[i].last_x;
-            objects.data[i].last_position.y = gpu_solver->h_objects[i].last_y;
-        }
-    }
-
-    void update(float dt)
-    {
-        const float sub_dt = dt / float(sub_steps);
-
-        for (uint32_t i = 0; i < sub_steps; ++i)
-        {
-            addObjectsToGrid();
-            solveCollisions();
-
-            if (use_gpu)
-                updateObjects_gpu(sub_dt);
-            else
-                updateObjects_multi(sub_dt);
-        }
-    }
-
+    // Add objects to CPU grid (for CPU collisions)
     void addObjectsToGrid()
     {
         grid.clear();
         // Safety border to avoid adding object outside the grid
         uint32_t i{0};
-        for (const PhysicObject &obj : objects.data)
+        for (const PhysicObject& obj : objects.data)
         {
             if (obj.position.x > 1.0f && obj.position.x < world_size.x - 1.0f &&
                 obj.position.y > 1.0f && obj.position.y < world_size.y - 1.0f)
@@ -186,11 +183,13 @@ struct PhysicSolver
         }
     }
 
+    // CPU multi-thread object update (unchanged)
     void updateObjects_multi(float dt)
     {
         thread_pool.dispatch(to<uint32_t>(objects.size()), [&](uint32_t start, uint32_t end)
-                             {
-            for (uint32_t i{start}; i < end; ++i) {
+        {
+            for (uint32_t i{start}; i < end; ++i)
+            {
                 PhysicObject& obj = objects.data[i];
                 // Add gravity
                 obj.acceleration += gravity;
@@ -198,16 +197,56 @@ struct PhysicSolver
                 obj.update(dt);
                 // Apply map borders collisions
                 const float margin = 2.0f;
-                if (obj.position.x > world_size.x - margin) {
+                if (obj.position.x > world_size.x - margin)
+                {
                     obj.position.x = world_size.x - margin;
-                } else if (obj.position.x < margin) {
+                }
+                else if (obj.position.x < margin)
+                {
                     obj.position.x = margin;
                 }
-                if (obj.position.y > world_size.y - margin) {
+                if (obj.position.y > world_size.y - margin)
+                {
                     obj.position.y = world_size.y - margin;
-                } else if (obj.position.y < margin) {
+                }
+                else if (obj.position.y < margin)
+                {
                     obj.position.y = margin;
                 }
-            } });
+            }
+        });
+    }
+
+    // Main update function
+    void update(float dt)
+    {
+        const float sub_dt = dt / float(sub_steps);
+
+        for (uint32_t i = 0; i < sub_steps; ++i)
+        {
+            if (use_gpu && gpu_solver)
+            {
+                // GPU path: collisions + integration on GPU only
+                gpu_solver->update_full(sub_dt);
+
+                // Sync GPU → CPU so the rest of the engine can read positions
+                const uint32_t count = to<uint32_t>(objects.size());
+                for (uint32_t j = 0; j < count; ++j)
+                {
+                    objects.data[j].position.x      = gpu_solver->h_objects[j].x;
+                    objects.data[j].position.y      = gpu_solver->h_objects[j].y;
+                    objects.data[j].last_position.x = gpu_solver->h_objects[j].last_x;
+                    objects.data[j].last_position.y = gpu_solver->h_objects[j].last_y;
+                }
+            }
+            else
+            {
+                // CPU path (original behavior)
+                addObjectsToGrid();
+                solveCollisions();
+                updateObjects_multi(sub_dt);
+            }
+        }
     }
 };
+
