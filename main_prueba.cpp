@@ -5,9 +5,27 @@
 
 #include "physics/physics.hpp"
 #include "thread_pool/thread_pool.hpp"
+#include <cuda_runtime.h>
+
+void checkGPU() {
+    int count = 0;
+    cudaGetDeviceCount(&count);
+
+    if (count == 0) {
+        std::cout << "NO CUDA GPU DETECTED!" << std::endl;
+        return;
+    }
+
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+
+    std::cout << "GPU DETECTED: " << prop.name << std::endl;
+}
+
 
 int main(int argc, char **argv)
 {
+    checkGPU();
     // 1. Leer número de objetos como argumento
     int N = 2000;        // default
     int NUM_THREADS = 1; // default
@@ -23,6 +41,7 @@ int main(int argc, char **argv)
     tp::ThreadPool thread_pool(NUM_THREADS);
 
     bool use_gpu = (argc > 3 ? std::atoi(argv[3]) : 0);
+    
     PhysicSolver solver(world_size, thread_pool, use_gpu);
 
     // 3. Crear partículas iniciales
