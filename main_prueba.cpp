@@ -7,10 +7,18 @@
 #include "thread_pool/thread_pool.hpp"
 #include <cuda_runtime.h>
 
+// ---- GPU CHECK ----
 void checkGPU()
 {
     int count = 0;
-    cudaGetDeviceCount(&count);
+    cudaError_t err = cudaGetDeviceCount(&count);
+
+    if (err != cudaSuccess)
+    {
+        std::cout << "cudaGetDeviceCount ERROR: "
+                  << cudaGetErrorString(err) << std::endl;
+        return;
+    }
 
     if (count == 0)
     {
@@ -18,16 +26,19 @@ void checkGPU()
         return;
     }
 
-    cudaDeviceProp prop;
+    cudaDeviceProp prop{};
     cudaGetDeviceProperties(&prop, 0);
 
     std::cout << "GPU DETECTED: " << prop.name << std::endl;
 }
 
+// 🔴 IMPORTANT: match definition in test_gpu.cu
+extern "C" void gpu_test();
+
 int main(int argc, char **argv)
 {
+    // Check GPU and run tiny test kernel
     checkGPU();
-    extern void gpu_test();
     gpu_test();
 
     // 1. Leer número de objetos como argumento
@@ -44,6 +55,7 @@ int main(int argc, char **argv)
 
     tp::ThreadPool thread_pool(NUM_THREADS);
 
+    // argv[3] == 1  -> usar GPU
     bool use_gpu = (argc > 3 ? std::atoi(argv[3]) : 0);
 
     PhysicSolver solver(world_size, thread_pool, use_gpu);
@@ -74,7 +86,7 @@ int main(int argc, char **argv)
 
     double fps = frames / (total_ms / 1000.0);
 
-    std::cout << fps << std::endl;
+    std::cout << "FPS: " << fps << std::endl;
 
     return 0;
 }
