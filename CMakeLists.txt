@@ -1,3 +1,4 @@
+// CMakeLists.txt
 cmake_minimum_required(VERSION 3.16)
 
 # Activar C++ y CUDA
@@ -17,7 +18,7 @@ FetchContent_MakeAvailable(SFML)
 # ---- Archivos fuente ----
 file(GLOB_RECURSE source_files
     "src/*.cpp"
-    "src/*.cu"      # ← AGREGADO
+    "src/*.cu"
 )
 
 add_executable(${PROJECT_NAME} ${source_files})
@@ -25,11 +26,21 @@ add_executable(${PROJECT_NAME} ${source_files})
 # ---- Includes ----
 target_include_directories(${PROJECT_NAME} PRIVATE "src" "engine")
 
-# ---- Librerías ----
+# ---- SFML ----
 target_link_libraries(${PROJECT_NAME} PRIVATE sfml-graphics)
+
+# ---- CUDA RUNTIME (MISSING BEFORE!!) ----
+find_package(CUDAToolkit REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cudart)
 
 # ---- Estándares ----
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_STANDARD 17
+)
+
 
 # ---- Flags recomendados para CUDA ----
 set_target_properties(${PROJECT_NAME} PROPERTIES
