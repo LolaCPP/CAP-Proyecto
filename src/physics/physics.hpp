@@ -33,7 +33,7 @@ struct PhysicSolver
         {
             // Use same grid dimensions and world size for GPUSolver
             gpu_solver = new GPUSolver(
-                200000,           // max objects (can adjust)
+                20000000,           // max objects (can adjust)
                 grid.width,
                 grid.height,
                 world_size.x,
