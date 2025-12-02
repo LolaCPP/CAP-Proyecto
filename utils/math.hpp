@@ -1,13 +1,13 @@
 // utils/math.hpp
 #pragma once
-#include <SFML/System/Vector2.hpp>
-
+#include <cmath>
+#include "../solver.hpp"
 
 struct Math
 {
     static constexpr float PI = 3.1415936f;
 
-    static sf::Vector2f dot(sf::Vector2f v1, sf::Vector2f v2)
+    static Vec2 dot(Vec2 v1, Vec2 v2)
     {
         return {v1.x * v2.x, v1.y * v2.y};
     }
