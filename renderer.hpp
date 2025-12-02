@@ -1,7 +1,8 @@
 // renderer.hpp
 #pragma once
-#include "solver.hpp"
-
+#include <SFML/Graphics.hpp>
+#include "solver_base.hpp"
+#include "solver.hpp"   // for VerletObject definition
 
 class Renderer
 {
@@ -9,13 +10,10 @@ public:
     explicit
     Renderer(sf::RenderTarget& target)
         : m_target{target}
-    {
+    {}
 
-    }
-
-    void render(const Solver& solver) const
+    void render(const SolverBase& solver) const
     {
-        // Render constraint
         const sf::Vector3f constraint = solver.getConstraint();
         sf::CircleShape constraint_background{constraint.z};
         constraint_background.setOrigin(constraint.z, constraint.z);
@@ -24,10 +22,10 @@ public:
         constraint_background.setPointCount(128);
         m_target.draw(constraint_background);
 
-        // Render objects
         sf::CircleShape circle{1.0f};
         circle.setPointCount(32);
         circle.setOrigin(1.0f, 1.0f);
+
         const auto& objects = solver.getObjects();
         for (const auto& obj : objects) {
             circle.setPosition(obj.position);
