@@ -1,4 +1,4 @@
-// CMakeLists.txt
+# CMakeLists.txt
 cmake_minimum_required(VERSION 3.16)
 
 # Activar C++ y CUDA
