@@ -32,7 +32,7 @@ void checkGPU()
     std::cout << "GPU DETECTED: " << prop.name << std::endl;
 }
 
-// 🔴 IMPORTANT: match definition in test_gpu.cu
+// IMPORTANT: match definition in test_gpu.cu
 extern "C" void gpu_test();
 
 int main(int argc, char **argv)
