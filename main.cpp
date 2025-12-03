@@ -53,15 +53,15 @@ int main(int argc, char* argv[])
     solver->setConstraint({static_cast<float>(window_width) * 0.5f,
                            static_cast<float>(window_height) * 0.5f},
                           450.0f);
-    solver->setSubStepsCount(8);
+    solver->setSubStepsCount(16);
     solver->setSimulationUpdateRate(frame_rate);
 
-    const float object_spawn_delay   = 1.025f;
-    const float object_spawn_speed   = 1200.0f;
+    const float object_spawn_delay   = 0.025f;
+    const float object_spawn_speed   = 600.0f;
     const sf::Vector2f object_spawn_position = {500.0f, 200.0f};
     const float object_min_radius    = 5.0f;
     const float object_max_radius    = 5.0f;
-    const uint32_t max_objects_count = 1000;
+    const uint32_t max_objects_count = 10000;
     const float max_angle            = 1.0f;
 
     sf::Clock clock;
