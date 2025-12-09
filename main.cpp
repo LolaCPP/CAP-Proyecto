@@ -9,6 +9,7 @@
 #include "renderer.hpp"
 #include "utils/number_generator.hpp"
 #include "utils/math.hpp"
+#include <fstream>
 
 static sf::Color getRainbow(float t)
 {
@@ -20,9 +21,9 @@ static sf::Color getRainbow(float t)
             static_cast<uint8_t>(255.0f * b * b)};
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-    constexpr int32_t window_width  = 1000;
+    constexpr int32_t window_width = 1000;
     constexpr int32_t window_height = 1000;
 
     sf::ContextSettings settings;
@@ -36,12 +37,12 @@ int main(int argc, char* argv[])
     if (argc > 1)
         useGPU = (std::stoi(argv[1]) != 0);
 
-    Solver    solverCPU;
+    Solver solverCPU;
     SolverGPU solverGPU;
 
-    SolverBase* solver = useGPU
-        ? static_cast<SolverBase*>(&solverGPU)
-        : static_cast<SolverBase*>(&solverCPU);
+    SolverBase *solver = useGPU
+                             ? static_cast<SolverBase *>(&solverGPU)
+                             : static_cast<SolverBase *>(&solverCPU);
 
     if (useGPU)
         std::cout << "[MAIN] Using GPU solver\n";
@@ -56,17 +57,23 @@ int main(int argc, char* argv[])
     solver->setSubStepsCount(16);
     solver->setSimulationUpdateRate(frame_rate);
 
-    const float object_spawn_delay   = 0.025f;
-    const float object_spawn_speed   = 600.0f;
+    const float object_spawn_delay = 0.025f;
+    const float object_spawn_speed = 1200.0f;
     const sf::Vector2f object_spawn_position = {500.0f, 200.0f};
-    const float object_min_radius    = 5.0f;
-    const float object_max_radius    = 5.0f;
+    const float object_min_radius = 2.0f;
+    const float object_max_radius = 5.0f;
     const uint32_t max_objects_count = 10000;
-    const float max_angle            = 1.0f;
+    const float max_angle = 1.0f;
 
     sf::Clock clock;
     sf::Clock fpsClock;
     int frameCount = 0;
+
+    std::ofstream results("resultados_cpu.txt");
+    if (!results.is_open())
+    {
+        std::cerr << "No se pudo abrir resultados.txt\n";
+    }
 
     while (window.isOpen())
     {
@@ -91,7 +98,7 @@ int main(int argc, char* argv[])
             const float t = solver->getTime();
             const float angle = max_angle * std::sin(t) + Math::PI * 0.5f;
             solver->setObjectVelocity(object,
-                object_spawn_speed * sf::Vector2f{std::cos(angle), std::sin(angle)});
+                                      object_spawn_speed * sf::Vector2f{std::cos(angle), std::sin(angle)});
             object.color = getRainbow(t);
         }
 
@@ -107,13 +114,14 @@ int main(int argc, char* argv[])
             const uint64_t objCount = solver->getObjectsCount();
 
             window.setTitle(
-                std::string("Verlet ")
-                + (useGPU ? "[GPU]" : "[CPU]")
-                + " | FPS: " + std::to_string(frameCount)
-                + " | Objects: " + std::to_string(objCount));
+                std::string("Verlet ") + (useGPU ? "[GPU]" : "[CPU]") + " | FPS: " + std::to_string(frameCount) + " | Objects: " + std::to_string(objCount));
+            
+            results << frameCount << " " << objCount << "\n";
+            results.flush(); 
 
             frameCount = 0;
             fpsClock.restart();
+            
         }
 
         window.display();
