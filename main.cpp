@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     solver->setSubStepsCount(16);
     solver->setSimulationUpdateRate(frame_rate);
 
-    const float object_spawn_delay = 0.025f;
+    const float object_spawn_delay = 0.005f;
     const float object_spawn_speed = 1200.0f;
     const sf::Vector2f object_spawn_position = {500.0f, 200.0f};
     const float object_min_radius = 2.0f;

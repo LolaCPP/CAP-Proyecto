@@ -1,4 +1,4 @@
-# Compile
+# Compilar
 nvcc -c solver_gpu.cu -o solver_gpu.o \
     -arch=sm_86 \
     -std=c++17 \
@@ -13,3 +13,7 @@ g++ main.cpp solver_gpu.o -o verlet_app \
     -I/usr/local/cuda/include \
     -std=c++17 \
     -lm -O2
+
+# Librerías de python para graficar: 
+    - numpy
+    - matplotlib

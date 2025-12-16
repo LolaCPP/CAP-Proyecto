@@ -59,10 +59,8 @@ private:
     float                     m_time               = 0.0f;
     float                     m_frame_dt           = 0.0f;
 
-    // CPU copy for renderer
     std::vector<VerletObject> m_objects;
 
-    // GPU data (device buffers)
     VerletObject* d_objects = nullptr;
     size_t d_capacity = 0;
 };

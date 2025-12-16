@@ -4,16 +4,12 @@
 #include <iostream>
 #include <cmath>
 
-// Small POD type to accumulate positional corrections per particle
+// Delta to accumulate corrections per particle
 struct Delta2
 {
     float x;
     float y;
 };
-
-// --------------------------------------------------
-// KERNELS
-// --------------------------------------------------
 
 __global__ void kernel_applyGravity(VerletObject* objs, size_t n, float gx, float gy)
 {
@@ -24,7 +20,7 @@ __global__ void kernel_applyGravity(VerletObject* objs, size_t n, float gx, floa
     objs[i].acceleration.y += gy;
 }
 
-// Accumulate collision corrections into delta[] using atomics.
+// Collission corrections into delta[] using atomics.
 // We DO NOT write directly to objs[i].position here to avoid races.
 __global__ void kernel_collide(
     VerletObject* objs,
@@ -96,7 +92,7 @@ __global__ void kernel_clearDelta(Delta2* delta, size_t n)
     delta[i].y = 0.0f;
 }
 
-// Circular constraint (same as CPU but per particle)
+// Circular constraint
 __global__ void kernel_applyConstraint(
     VerletObject* objs, size_t n,
     float cx, float cy, float radius)
@@ -120,7 +116,7 @@ __global__ void kernel_applyConstraint(
     }
 }
 
-// Verlet integration, same math as CPU updateObjects()
+// Verlet integration
 __global__ void kernel_integrate(VerletObject* objs, size_t n, float dt)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -148,9 +144,6 @@ __global__ void kernel_integrate(VerletObject* objs, size_t n, float dt)
     objs[i].acceleration.y = 0.0f;
 }
 
-// --------------------------------------------------
-// SolverGPU methods
-// --------------------------------------------------
 
 SolverGPU::SolverGPU()
 {
@@ -187,7 +180,7 @@ VerletObject& SolverGPU::addObject(sf::Vector2f pos, float radius)
         }
     }
 
-    // Upload entire array (simple, not optimal but OK for now)
+    // Upload entire array
     cudaMemcpy(d_objects, m_objects.data(),
                newCount * sizeof(VerletObject),
                cudaMemcpyHostToDevice);
@@ -203,12 +196,11 @@ void SolverGPU::update()
     size_t N = m_objects.size();
     if (N == 0) return;
 
-    // Upload CPU → GPU
     cudaMemcpy(d_objects, m_objects.data(),
                N * sizeof(VerletObject),
                cudaMemcpyHostToDevice);
 
-    // Temporary delta buffer for this frame (freed at end)
+    // Temporary delta buffer for this frame
     Delta2* d_delta = nullptr;
     cudaError_t err = cudaMalloc(&d_delta, N * sizeof(Delta2));
     if (err != cudaSuccess)
@@ -232,7 +224,7 @@ void SolverGPU::update()
         // Clear delta before collisions
         kernel_clearDelta<<<gridSize, blockSize>>>(d_delta, N);
 
-        // Collisions (accumulate corrections)
+        // Collisions
         kernel_collide<<<gridSize, blockSize>>>(
             d_objects, d_delta, N, response_coef);
 
@@ -259,7 +251,7 @@ void SolverGPU::update()
                   << cudaGetErrorString(err) << "\n";
     }
 
-    // Download back to CPU for rendering
+
     cudaMemcpy(m_objects.data(), d_objects,
                N * sizeof(VerletObject),
                cudaMemcpyDeviceToHost);
